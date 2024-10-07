@@ -1,0 +1,184 @@
+/**
+ * @file CylinderDetectionNode.cpp
+ * @brief ROS 2 node for detecting a cylindrical object in a laser scan and publishing its position in the map.
+ *
+ * This node subscribes to the laser scan topic, processes the scan data to identify a cylindrical object 
+ * with a known diameter, and publishes a marker representing the object in the map frame.
+ */
+
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <cmath>
+#include <vector>
+
+/**
+ * @struct Point
+ * @brief A simple structure to represent a 2D point.
+ */
+struct Point {
+    double x;  ///< X coordinate of the point
+    double y;  ///< Y coordinate of the point
+};
+
+/**
+ * @brief Function to check if a group of points forms a cylindrical shape.
+ * 
+ * This function calculates the center of the points and checks if all points are 
+ * within the expected radius of a known diameter cylinder.
+ * 
+ * @param points Vector of 2D points.
+ * @param expected_diameter The known diameter of the cylindrical object.
+ * @return true if the points form a cylindrical shape, false otherwise.
+ */
+bool isCylindricalShape(const std::vector<Point>& points, double expected_diameter) {
+    // Compute the average center of the points
+    double sum_x = 0.0, sum_y = 0.0;
+    for (const auto& point : points) {
+        sum_x += point.x;
+        sum_y += point.y;
+    }
+    double center_x = sum_x / points.size();
+    double center_y = sum_y / points.size();
+
+    // Check if all points are within the expected radius from the center
+    double expected_radius = expected_diameter / 2.0;
+    for (const auto& point : points) {
+        double distance_to_center = sqrt(pow(point.x - center_x, 2) + pow(point.y - center_y, 2));
+        if (std::abs(distance_to_center - expected_radius) > 0.05) {  // Allow some tolerance
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * @class CylinderDetectionNode
+ * @brief ROS 2 node for detecting a cylindrical object from laser scan data.
+ * 
+ * This node subscribes to the laser scan topic and processes the data to detect a cylindrical object.
+ * It also publishes a marker representing the detected object in the map frame for visualization.
+ */
+class CylinderDetectionNode : public rclcpp::Node {
+public:
+    /**
+     * @brief Constructor for the CylinderDetectionNode class.
+     * 
+     * Initializes the node, sets up the laser scan subscriber, and prepares the visualization marker publisher.
+     */
+    CylinderDetectionNode()
+        : Node("cylinder_detection_node"),
+          tf_buffer_(this->get_clock()),
+          tf_listener_(tf_buffer_) {
+        // Subscriber for the laser scan data
+        scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
+            "/scan", 10, std::bind(&CylinderDetectionNode::laserCallback, this, std::placeholders::_1));
+        
+        // Publisher for the visualization marker
+        marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("visualization_marker", 1);
+    }
+
+private:
+    /**
+     * @brief Callback function for processing the laser scan data.
+     * 
+     * This function converts the laser scan data into Cartesian coordinates, checks for the presence of 
+     * a cylindrical object, and publishes a marker if the object is detected.
+     * 
+     * @param scan The laser scan message received from the sensor.
+     */
+    void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr scan) {
+        std::vector<Point> points;
+        double angle_increment = scan->angle_increment;
+        double angle_min = scan->angle_min;
+
+        // Convert laser scan ranges to Cartesian coordinates
+        for (size_t i = 0; i < scan->ranges.size(); ++i) {
+            double range = scan->ranges[i];
+            if (range < scan->range_min || range > scan->range_max) continue;  // Ignore invalid points
+            double angle = angle_min + i * angle_increment;
+
+            // Convert polar coordinates to Cartesian coordinates
+            double x = range * cos(angle);
+            double y = range * sin(angle);
+            points.push_back({x, y});
+        }
+
+        // Try to identify the cylindrical object
+        const double cylinder_diameter = 0.3;  // 30 cm
+        if (isCylindricalShape(points, cylinder_diameter)) {
+            RCLCPP_INFO(this->get_logger(), "Cylindrical object detected!");
+
+            // Perform coordinate transformation to map frame
+            geometry_msgs::msg::TransformStamped transform;
+            try {
+                transform = tf_buffer_.lookupTransform("map", "base_link", tf2::TimePointZero);
+                double obj_x_map = transform.transform.translation.x;
+                double obj_y_map = transform.transform.translation.y;
+
+                // Publish the object as a marker in the map
+                auto marker = visualization_msgs::msg::Marker();
+                marker.header.frame_id = "map";
+                marker.header.stamp = this->now();
+                marker.ns = "cylinder_marker";
+                marker.id = 0;
+                marker.type = visualization_msgs::msg::Marker::CYLINDER;
+                marker.action = visualization_msgs::msg::Marker::ADD;
+
+                // Set the position of the cylinder
+                marker.pose.position.x = obj_x_map;
+                marker.pose.position.y = obj_y_map;
+                marker.pose.position.z = 0.0;
+                marker.pose.orientation.w = 1.0;
+
+                // Set cylinder dimensions
+                marker.scale.x = cylinder_diameter;
+                marker.scale.y = cylinder_diameter;
+                marker.scale.z = 1.0;  // Height
+
+                // Set the color of the cylinder
+                marker.color.a = 1.0;  // Alpha (visibility)
+                marker.color.r = 0.0;
+                marker.color.g = 1.0;
+                marker.color.b = 0.0;
+
+                // Publish the marker
+                marker_pub_->publish(marker);
+            }
+            catch (const tf2::TransformException& ex) {
+                RCLCPP_WARN(this->get_logger(), "%s", ex.what());
+            }
+        }
+    }
+
+    /// Laser scan subscriber
+    rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
+
+    /// Publisher for visualization markers
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
+
+    /// TF2 buffer for storing transformations
+    tf2_ros::Buffer tf_buffer_;
+
+    /// TF2 listener to handle coordinate frame transformations
+    tf2_ros::TransformListener tf_listener_;
+};
+
+/**
+ * @brief Main function to initialize the ROS 2 node and start spinning.
+ * 
+ * Initializes the ROS 2 system, creates the CylinderDetectionNode, and starts spinning the node.
+ * 
+ * @param argc Argument count
+ * @param argv Argument values
+ * @return int Program exit status
+ */
+int main(int argc, char** argv) {
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<CylinderDetectionNode>());
+    rclcpp::shutdown();
+    return 0;
+}
