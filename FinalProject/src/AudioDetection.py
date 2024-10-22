@@ -59,17 +59,17 @@ import noisereduce as nr
 from concurrent.futures import ThreadPoolExecutor
 import threading
 
-
+#TODO Play around with samplerate, k value, threshold, comparison time to get it running smoothly and more reliably
 
 class AudioComparisonNode(Node):
 
     def __init__(self) -> None:
         super().__init__("audio_comparison_node")
-        self.threads = ThreadPoolExecutor(max_workers=6)  # 1 thread for audio comparison
+        self.threads = ThreadPoolExecutor(max_workers=10)  # 1 thread for audio comparison
         self.lock = threading.Lock()
         self.threshold = 1000
         self.setSampleRate = 4000
-        self.compareSizeDivider = 6
+        self.compareSizeDivider = 5
         # File Loading
         self.reference_data, self.ref_sr = librosa.load('/home/jet/ros2_ws/src/audio_common/audio_common/samples/explosion.mp3', sr=self.setSampleRate)
         self.get_logger().info(f"Loaded reference audio with sample rate {self.setSampleRate}")
@@ -79,6 +79,7 @@ class AudioComparisonNode(Node):
         self.liveAudioBuffer = np.zeros(int(self.sampleTime*self.ref_sr))  #Rolling recording the live audio scaling to reference duration
 
         self.reference_data = librosa.util.normalize(self.reference_data) # normalise 
+        self.minLength = int(len(self.liveAudioBuffer)/self.compareSizeDivider) #Snippet size to compare audio signals
 
         #Plotting
         self.fig, self.ax = plt.subplots(nrows=4, sharex=True)
@@ -90,7 +91,7 @@ class AudioComparisonNode(Node):
         #non changing plots
         librosa.display.waveshow(self.reference_data, sr=self.setSampleRate, ax=self.ax[0]) #full ref
         plt.pause(0.01)
-        librosa.display.waveshow(self.reference_data[:(int(len(self.liveAudioBuffer)/7))], sr=self.setSampleRate, ax=self.ax[3]) #ref snippet
+        librosa.display.waveshow(self.reference_data[:self.minLength], sr=self.setSampleRate, ax=self.ax[3]) #ref snippet
         plt.pause(0.01)
 
         plt.ion()
@@ -135,13 +136,12 @@ class AudioComparisonNode(Node):
             self.liveAudioBuffer = np.roll(self.liveAudioBuffer, -liveAudioSize)
             self.liveAudioBuffer[-liveAudioSize:] = liveAudio
 
-        minLength = int(len(self.liveAudioBuffer)/self.compareSizeDivider) #Snippet size to compare audio signals
 
         
 
 
-        self.liveAudio = liveAudio[:minLength]
-        self.refAudio = self.reference_data[:minLength] #Cutting refAudio into a chunk to process easier
+        self.liveAudio = self.liveAudioBuffer[:self.minLength]
+        self.refAudio = self.reference_data[:self.minLength] #Cutting refAudio into a chunk to process easier
 
         self.threads.submit(self.run_audio_comparison, self.liveAudio, self.refAudio) #graph gets stuck if audio comparison is on same thread
         self.plotWaveforms()
