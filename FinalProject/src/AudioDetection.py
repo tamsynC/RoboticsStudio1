@@ -78,6 +78,8 @@ class AudioComparisonNode(Node):
 
         self.liveAudioBuffer = np.zeros(int(self.sampleTime*self.ref_sr))  #Rolling recording the live audio scaling to reference duration
 
+        self.reference_data = librosa.util.normalize(self.reference_data) # normalise 
+
         #Plotting
         self.fig, self.ax = plt.subplots(nrows=4, sharex=True)
         self.ax[0].set(title='Sample Audio File')
@@ -122,7 +124,7 @@ class AudioComparisonNode(Node):
 
         # Convert audio data to float and normalize
         liveAudio = subbedAudio.astype(np.float32)
-
+        liveAudio = librosa.util.normalize(liveAudio)
         # Append live audio to the buffer and discard the oldest data
         buffer_size = len(self.liveAudioBuffer)
         liveAudioSize = len(liveAudio)
@@ -134,6 +136,9 @@ class AudioComparisonNode(Node):
             self.liveAudioBuffer[-liveAudioSize:] = liveAudio
 
         minLength = int(len(self.liveAudioBuffer)/self.compareSizeDivider) #Snippet size to compare audio signals
+
+        
+
 
         self.liveAudio = liveAudio[:minLength]
         self.refAudio = self.reference_data[:minLength] #Cutting refAudio into a chunk to process easier
@@ -170,13 +175,18 @@ class AudioComparisonNode(Node):
         except Exception as e:
             self.get_logger().error(f"Error in audio comparison: {str(e)}")
 
+
+
     def compare_audio(self, liveAudio: np.ndarray, refAudio: np.ndarray) -> float:
         # Adjust lengths for comparison
 
 
+        self.get_logger().info(f"Reference audio length: {len(refAudio)}, Live audio length: {len(liveAudio)}")
+
         # Compute similarity using correlation
         # correlation = np.correlate(liveAudio, refAudio, mode='valid')
         # similarity = np.max(np.abs(correlation)) / (np.linalg.norm(liveAudio) * np.linalg.norm(refAudio))
+
 
         xsim = librosa.segment.cross_similarity(liveAudio, refAudio, k=2)
         similarity = np.sum(xsim)
