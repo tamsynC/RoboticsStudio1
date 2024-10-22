@@ -70,6 +70,8 @@ class AudioComparisonNode(Node):
         self.threshold = 1000
         self.setSampleRate = 4000
         self.compareSizeDivider = 5
+        self.maxSoundVol = 2000
+        self.minSoundVol= 0.00001 #in a silent room my microphone reads about 0.00025
         # File Loading
         self.reference_data, self.ref_sr = librosa.load('/home/jet/ros2_ws/src/audio_common/audio_common/samples/explosion.mp3', sr=self.setSampleRate)
         self.get_logger().info(f"Loaded reference audio with sample rate {self.setSampleRate}")
@@ -125,6 +127,10 @@ class AudioComparisonNode(Node):
 
         # Convert audio data to float and normalize
         liveAudio = subbedAudio.astype(np.float32)
+        if np.max(liveAudio) > self.maxSoundVol:
+            self.get_logger().info(f"Loud Environment {np.max(liveAudio): .10f} Max Sound Recorded")
+        if np.mean(liveAudio) < self.minSoundVol:
+            self.get_logger().info(f"Average sound level of {np.mean(liveAudio): .10f} is unusually low, please test microphone")
         liveAudio = librosa.util.normalize(liveAudio)
         # Append live audio to the buffer and discard the oldest data
         buffer_size = len(self.liveAudioBuffer)
