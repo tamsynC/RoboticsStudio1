@@ -181,20 +181,47 @@ class AudioComparisonNode(Node):
         # Adjust lengths for comparison
 
 
-        self.get_logger().info(f"Reference audio length: {len(refAudio)}, Live audio length: {len(liveAudio)}")
+        # self.get_logger().info(f"Reference audio length: {len(refAudio)}, Live audio length: {len(liveAudio)}")
+        # self.get_logger().info(f"Live audio sample: {liveAudio[:10]}")
+        # self.get_logger().info(f"Reference audio sample: {refAudio[:10]}")
 
         # Compute similarity using correlation
         # correlation = np.correlate(liveAudio, refAudio, mode='valid')
         # similarity = np.max(np.abs(correlation)) / (np.linalg.norm(liveAudio) * np.linalg.norm(refAudio))
 
 
-        xsim = librosa.segment.cross_similarity(liveAudio, refAudio, k=2)
+        xsim = librosa.segment.cross_similarity(liveAudio, self.refAudio, mode='affinity', metric='cosine')        
         similarity = np.sum(xsim)
 
         self.get_logger().info(str(similarity))
 
         return similarity
+    
 
+
+
+
+    #speedy but dodgy way
+
+
+    # from sklearn.metrics.pairwise import cosine_similarity
+    # # Normalize both audio signals
+
+    # # Ensure lengths are the same
+    # min_len = min(len(liveAudio), len(refAudio))
+    # liveAudio = liveAudio[:min_len]
+    # refAudio = refAudio[:min_len]
+    
+    # # Reshape for cosine similarity (requires 2D arrays)
+    # liveAudio = liveAudio.reshape(1, -1)
+    # refAudio = refAudio.reshape(1, -1)
+    
+    # # Compute cosine similarity
+    # similarity = cosine_similarity(liveAudio, refAudio)[0][0] * 1000  # Scaling for easier thresholding
+    
+    # self.get_logger().info(f"Cosine similarity: {similarity}")
+    
+    # return similarity
 #THREAD END
 
 
