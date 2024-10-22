@@ -70,6 +70,8 @@ class AudioComparisonNode(Node):
         self.threshold = 1000
         self.setSampleRate = 4000
         self.compareSizeDivider = 5
+        self.hop_length = 1024
+
         self.maxSoundVol = 2000
         self.minSoundVol= 0.00001 #in a silent room my microphone reads about 0.00025
         # File Loading
@@ -194,9 +196,18 @@ class AudioComparisonNode(Node):
         # Compute similarity using correlation
         # correlation = np.correlate(liveAudio, refAudio, mode='valid')
         # similarity = np.max(np.abs(correlation)) / (np.linalg.norm(liveAudio) * np.linalg.norm(refAudio))
+        #NEW CODE
+        y_ref, sr = librosa.load(librosa.ex('pistachio'))
+        y_comp, sr = librosa.load(librosa.ex('pistachio'), offset=10)
+        chroma_ref = librosa.feature.chroma_cqt(y=self.reference_data, sr=self.ref_sr, hop_length=hop_length)
+        chroma_comp = librosa.feature.chroma_cqt(y=liveAudio, sr=self.ref_sr, hop_length=hop_length)
+        # Use time-delay embedding to get a cleaner recurrence matrix
+        x_ref = librosa.feature.stack_memory(chroma_ref, n_steps=10, delay=3)
+        x_comp = librosa.feature.stack_memory(chroma_comp, n_steps=10, delay=3)
+        xsim = librosa.segment.cross_similarity(x_comp, x_ref)
+        #NEW CODE
 
-
-        xsim = librosa.segment.cross_similarity(liveAudio, self.refAudio, mode='affinity', metric='cosine')        
+        # xsim = librosa.segment.cross_similarity(liveAudio, self.refAudio, mode='affinity', metric='cosine')        
         similarity = np.sum(xsim)
 
         self.get_logger().info(str(similarity))
