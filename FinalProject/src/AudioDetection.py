@@ -197,10 +197,10 @@ class AudioComparisonNode(Node):
         # correlation = np.correlate(liveAudio, refAudio, mode='valid')
         # similarity = np.max(np.abs(correlation)) / (np.linalg.norm(liveAudio) * np.linalg.norm(refAudio))
         #NEW CODE
-        y_ref, sr = librosa.load(librosa.ex('pistachio'))
-        y_comp, sr = librosa.load(librosa.ex('pistachio'), offset=10)
-        chroma_ref = librosa.feature.chroma_cqt(y=self.reference_data, sr=self.ref_sr, hop_length=hop_length)
-        chroma_comp = librosa.feature.chroma_cqt(y=liveAudio, sr=self.ref_sr, hop_length=hop_length)
+        # y_ref, sr = librosa.load(librosa.ex('pistachio'))
+        # y_comp, sr = librosa.load(librosa.ex('pistachio'), offset=10)
+        chroma_ref = librosa.feature.chroma_cqt(y=refAudio, sr=self.setSampleRate, hop_length=hop_length)
+        chroma_comp = librosa.feature.chroma_cqt(y=liveAudio, sr=self.setSampleRate, hop_length=hop_length)
         # Use time-delay embedding to get a cleaner recurrence matrix
         x_ref = librosa.feature.stack_memory(chroma_ref, n_steps=10, delay=3)
         x_comp = librosa.feature.stack_memory(chroma_comp, n_steps=10, delay=3)
