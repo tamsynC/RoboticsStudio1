@@ -56,51 +56,40 @@ from audio_common_msgs.msg import AudioStamped
 from audio_common.utils import msg_to_array
 import matplotlib.pyplot as plt
 import noisereduce as nr
-
-
 from concurrent.futures import ThreadPoolExecutor
+import threading
+
+
 
 class AudioComparisonNode(Node):
 
     def __init__(self) -> None:
         super().__init__("audio_comparison_node")
         self.threads = ThreadPoolExecutor(max_workers=6)  # 1 thread for audio comparison
+        self.lock = threading.Lock()
+        self.threshold = 1000
+        self.setSampleRate = 4000
+        self.compareSizeDivider = 6
+        # File Loading
+        self.reference_data, self.ref_sr = librosa.load('/home/jet/ros2_ws/src/audio_common/audio_common/samples/explosion.mp3', sr=self.setSampleRate)
+        self.get_logger().info(f"Loaded reference audio with sample rate {self.setSampleRate}")
 
-        # Load the reference audio file (MP3)
-        self.reference_data, self.ref_sr = librosa.load('/home/jet/ros2_ws/src/audio_common/audio_common/samples/explosion.mp3')
-        self.get_logger().info(f"Loaded reference audio with sample rate {self.ref_sr}")
+        self.sampleTime = librosa.get_duration(y = self.reference_data, sr = self.ref_sr) #Reference audio duration
 
-        # Declare parameters for audio comparison
-        self.declare_parameters("", [
-            ("threshold", 0.1),  # Similarity threshold
-            ("channels", 1),
-            ("device", -1),
-        ])
+        self.liveAudioBuffer = np.zeros(int(self.sampleTime*self.ref_sr))  #Rolling recording the live audio scaling to reference duration
 
-        self.sampleTime = librosa.get_duration(y = self.reference_data, sr = self.ref_sr)
-
-        self.live_audio_buffer = np.zeros(int(self.sampleTime*self.ref_sr*0.727272))  # sample time * self.ref_sr Hz (polling rate)
-
-        self.threshold = self.get_parameter("threshold").get_parameter_value().double_value
-        self.channels = self.get_parameter("channels").get_parameter_value().integer_value
-        device = self.get_parameter("device").get_parameter_value().integer_value
-
-        if device < 0:
-            device = None
-
-        self.min_length = int(len(self.live_audio_buffer)/7) # 1/7 total audio sample length
-        self.ref_audio = self.reference_data[:self.min_length]
-
-        #plotting
+        #Plotting
         self.fig, self.ax = plt.subplots(nrows=4, sharex=True)
         self.ax[0].set(title='Sample Audio File')
         self.ax[1].set(title='Live Audio')
         self.ax[2].set(title='Live Audio Snippet')
         self.ax[3].set(title='Reference Audio Snippet')
 
-        librosa.display.waveshow(self.reference_data, sr=self.ref_sr, ax=self.ax[0])
-        librosa.display.waveshow(self.ref_audio, sr=self.ref_sr, ax=self.ax[3])
-
+        #non changing plots
+        librosa.display.waveshow(self.reference_data, sr=self.setSampleRate, ax=self.ax[0]) #full ref
+        plt.pause(0.01)
+        librosa.display.waveshow(self.reference_data[:(int(len(self.liveAudioBuffer)/7))], sr=self.setSampleRate, ax=self.ax[3]) #ref snippet
+        plt.pause(0.01)
 
         plt.ion()
         plt.show()
@@ -119,62 +108,81 @@ class AudioComparisonNode(Node):
 
     def audio_callback(self, msg: AudioStamped) -> None:
         # Convert the received audio message to a NumPy array
-        array_data = msg_to_array(msg.audio)
+        subbedAudio = msg_to_array(msg.audio)
 
-        if array_data is None:
+        if subbedAudio is None:
             self.get_logger().error(f"Format {msg.audio.info.format} unknown")
             return
-        self.liveSRRate = msg.audio.info.rate
-        array_data = nr.reduce_noise(y=array_data, sr=msg.audio.info.rate, prop_decrease=1, n_jobs=1) #opt
+            
+
+
+        self.subbedSRRate = msg.audio.info.rate
+        subbedAudio = nr.reduce_noise(y=subbedAudio, sr=msg.audio.info.rate, prop_decrease=1, n_jobs=1) #opt
 
 
         # Convert audio data to float and normalize
-        live_audio = array_data.astype(np.float32)
-
-
+        liveAudio = subbedAudio.astype(np.float32)
 
         # Append live audio to the buffer and discard the oldest data
-        buffer_size = len(self.live_audio_buffer)
-        live_audio_size = len(live_audio)
-        if live_audio_size > buffer_size:
-            self.live_audio_buffer = live_audio[-buffer_size:]
+        buffer_size = len(self.liveAudioBuffer)
+        liveAudioSize = len(liveAudio)
+        
+        if liveAudioSize > buffer_size:
+            self.liveAudioBuffer = liveAudio[-buffer_size:]
         else:
-            self.live_audio_buffer = np.roll(self.live_audio_buffer, -live_audio_size)
-            self.live_audio_buffer[-live_audio_size:] = live_audio
+            self.liveAudioBuffer = np.roll(self.liveAudioBuffer, -liveAudioSize)
+            self.liveAudioBuffer[-liveAudioSize:] = liveAudio
 
+        minLength = int(len(self.liveAudioBuffer)/self.compareSizeDivider) #Snippet size to compare audio signals
+
+        self.liveAudio = liveAudio[:minLength]
+        self.refAudio = self.reference_data[:minLength] #Cutting refAudio into a chunk to process easier
+
+        self.threads.submit(self.run_audio_comparison, self.liveAudio, self.refAudio) #graph gets stuck if audio comparison is on same thread
+        self.plotWaveforms()
+
+    def plotWaveforms(self):
+
+        #Whole live audio
         self.ax[1].cla()  # Clear the second plot (live audio)
-        librosa.display.waveshow(self.live_audio_buffer, sr=msg.audio.info.rate, ax=self.ax[1])
-        plt.pause(0.01)  # Pause to allow the plot to update, it freaks out lower than this
-
-        self.ax[2].cla()  # Clear the second plot (live audio)
-        librosa.display.waveshow(live_audio[:self.min_length], sr=self.liveSRRate, ax=self.ax[2])
+        librosa.display.waveshow(self.liveAudioBuffer, sr=self.setSampleRate, ax=self.ax[1])
+        self.ax[1].set(title='Live Audio')
         plt.pause(0.01)  # Pause to allow the plot to update, it freaks out lower than this
 
 
-        test = self.live_audio_buffer
-        self.threads.submit(self.run_audio_comparison, test) #graph gets stuck if audio comparison is on same thread
-
+        #Snippet of live audio
+        self.ax[2].cla()  # Clear the second plot (live snippet audio)
+        librosa.display.waveshow(self.liveAudio, sr=self.setSampleRate, ax=self.ax[2])
+        self.ax[2].set(title='Live Audio Snippet')
+        plt.pause(0.01)  # Pause to allow the plot to update, it freaks out lower than this
 
 
 #THREAD START
 
-    def run_audio_comparison(self, live_audio: np.ndarray) -> None:
-        similarity = self.compare_audio(live_audio)
-        if similarity > self.threshold:
-            self.get_logger().info(f"Audio matches with similarity {similarity:.2f} (above threshold)")
-        else:
-            self.get_logger().info(f"Audio does not match, similarity {similarity:.2f} (below threshold)")
+    def run_audio_comparison(self, liveAudio: np.ndarray, refAudio: np.ndarray) -> None:
+        try: 
+            similarity = self.compare_audio(liveAudio, refAudio)
 
-    def compare_audio(self, live_audio: np.ndarray) -> float:
+            if similarity > self.threshold:
+                self.get_logger().info(f"Audio matches with similarity {similarity:.2f} (above threshold)")
+            else:
+                self.get_logger().info(f"Audio does not match, similarity {similarity:.2f} (below threshold)")
+        except Exception as e:
+            self.get_logger().error(f"Error in audio comparison: {str(e)}")
+
+    def compare_audio(self, liveAudio: np.ndarray, refAudio: np.ndarray) -> float:
         # Adjust lengths for comparison
-        live_audio = live_audio[:self.min_length]
+
 
         # Compute similarity using correlation
-        # correlation = np.correlate(live_audio, ref_audio, mode='valid')
-        # similarity = np.max(np.abs(correlation)) / (np.linalg.norm(live_audio) * np.linalg.norm(ref_audio))
+        # correlation = np.correlate(liveAudio, refAudio, mode='valid')
+        # similarity = np.max(np.abs(correlation)) / (np.linalg.norm(liveAudio) * np.linalg.norm(refAudio))
 
-        xsim = librosa.segment.cross_similarity(live_audio, self.ref_audio, mode='affinity', metric='cosine', k=5)
+        xsim = librosa.segment.cross_similarity(liveAudio, refAudio, k=2)
         similarity = np.sum(xsim)
+
+        self.get_logger().info(str(similarity))
+
         return similarity
 
 #THREAD END
@@ -182,8 +190,6 @@ class AudioComparisonNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-
-    # Path to your reference MP3 file
 
     node = AudioComparisonNode()
     rclpy.spin(node)
