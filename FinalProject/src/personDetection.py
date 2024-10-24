@@ -130,13 +130,13 @@ class PersonDetector(Node):
 
             if label == 'person':  # Only process person detections
                 # Draw the bounding box
-                cv2.rectangle(image, (x1, y1), (x2, y2), (64, 224, 208), 2)
+                cv2.rectangle(image, (x1, y1), (x2, y2), (59, 214, 198), 2)
 
                 # Create the label text with confidence
                 label_text = f"{label}: {confidence:.2f}"
 
                 # Put the label text on the frame
-                cv2.putText(image, label_text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (64, 224, 208), 2)
+                cv2.putText(image, label_text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (59, 214, 198), 2)
 
                 # Calculate the center of the bounding box
                 bbox_center_x = (x1 + x2) // 2
