@@ -1,15 +1,14 @@
 # import rclpy
 # from rclpy.node import Node
 # from sensor_msgs.msg import Image, LaserScan
-# from nav_msgs.msg import Odometry  # To get odometry data
-# from std_msgs.msg import String  # To publish the result as a string
+# from visualization_msgs.msg import Marker
 # from geometry_msgs.msg import Point
-
 # from ultralytics import YOLO
 # import cv2
-# from cv_bridge import CvBridge
 # import numpy as np
-# import math
+# from cv_bridge import CvBridge
+
+# from std_msgs.msg import Float32MultiArray
 
 # class PersonDetector(Node):
 #     def __init__(self):
@@ -21,28 +20,51 @@
 
 #         # Publishers and subscribers
 #         self.camera_subscriber = self.create_subscription(Image, '/camera/image_raw', self.image_callback, 10)
-#         # self.laser_subscriber = self.create_subscription(LaserScan, '/scan', self.laser_callback, 10)
-#         # self.marker_publisher = self.create_publisher(Marker, '/person_marker', 10)
+#         self.laser_subscriber = self.create_subscription(LaserScan, '/scan', self.laser_callback, 10)
 #         self.overlay_publisher = self.create_publisher(Image, '/camera/image_overlay', 10)
+#         self.angle_distance_publisher = self.create_publisher(Float32MultiArray, '/person_angle_distance', 10)
 
 #         # Variables for storing data
-#         # self.latest_laser_scan = None
-#         # self.people_positions = []
+#         self.latest_laser_scan = None
+#         self.people_positions = []
+
+#         # Camera parameters (not sure on specs will have to investigate)
+#         self.camera_fov = 60.0  # Horizontal field of view in degrees
+#         self.image_width = 640  # Width of the image in pixels
 
 #     def image_callback(self, msg):
 #         # Convert image from ROS to OpenCV
-#         frame = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+#         image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
 
 #         # Run YOLO detection
-#         #can remove show=True used for testing
-#         results = self.model(frame, show=True)
+#         results = self.model(image)
 
-#         annotated_image = results[0].plot()  # Use plot() to annotate image with bounding boxes
+#         person_angle = None
 
-#         # Publish overlay image
-#         overlay_msg = self.bridge.cv2_to_imgmsg(annotated_image, "bgr8")
+#         # Loop through the results and draw bounding boxes
+#         for result in results[0].boxes:
+#             # Extract the bounding box coordinates
+#             x1, y1, x2, y2 = map(int, result.xyxy[0])
+
+#             # Extract the object label and confidence
+#             confidence = result.conf[0]
+#             class_id = int(result.cls[0])
+#             label = self.model.names[class_id]  # Get the class label
+
+#             # Draw the bounding box
+#             cv2.rectangle(image, (x1, y1), (x2, y2), (64, 224, 208), 2)
+
+#             # Create the label text with confidence
+#             label_text = f"{label}: {confidence:.2f}"
+
+#             # Put the label text on the frame
+#             cv2.putText(image, label_text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (64, 224, 208), 2)
+
+#         # Publish the overlay image with bounding boxes
+#         overlay_msg = self.bridge.cv2_to_imgmsg(image, "bgr8")
 #         self.overlay_publisher.publish(overlay_msg)
 
+        
 
 # def main(args=None):
 #     rclpy.init(args=args)
@@ -57,14 +79,13 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, LaserScan
-from nav_msgs.msg import Odometry  # To get odometry data
-from std_msgs.msg import String  # To publish the result as a string
+from std_msgs.msg import Float32MultiArray
+from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point
 from ultralytics import YOLO
 import cv2
-from cv_bridge import CvBridge
 import numpy as np
-import math
+from cv_bridge import CvBridge
 
 class PersonDetector(Node):
     def __init__(self):
@@ -77,145 +98,103 @@ class PersonDetector(Node):
         # Publishers and subscribers
         self.camera_subscriber = self.create_subscription(Image, '/camera/image_raw', self.image_callback, 10)
         self.laser_subscriber = self.create_subscription(LaserScan, '/scan', self.laser_callback, 10)
-        self.odom_subscriber = self.create_subscription(Odometry, '/odom', self.odom_callback, 10)
-        self.position_publisher = self.create_publisher(String, '/person_position', 10)
         self.overlay_publisher = self.create_publisher(Image, '/camera/image_overlay', 10)
+        self.angle_distance_publisher = self.create_publisher(Float32MultiArray, '/person_angle_distance', 10)
 
         # Variables for storing data
         self.latest_laser_scan = None
-        self.latest_odom = None
         self.people_positions = []
 
-    # def image_callback(self, msg):
-    #     # Convert image from ROS to OpenCV
-    #     frame = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-
-    #     # Run YOLO detection
-    #     results = self.model(frame, show=True)
-    #     detected_people = []
-
-    #     for result in results:
-    #         for box in result.boxes:
-    #             # Assuming class 0 is 'person'
-    #             if box.cls == 0:
-    #                 bbox = box.xyxy  # Bounding box
-    #                 detected_people.append(bbox)
-
-    #     # Store detected people for laser scan callback
-    #     self.people_positions = detected_people
-
-    #     # Annotate image and publish overlay
-    #     annotated_image = results[0].plot()
-    #     overlay_msg = self.bridge.cv2_to_imgmsg(annotated_image, "bgr8")
-    #     self.overlay_publisher.publish(overlay_msg)
+        # Camera parameters (to be adjusted based on your camera specifications)
+        self.camera_fov = 90.0  # Horizontal field of view in degrees
+        self.image_width = 640  # Width of the image in pixels
 
     def image_callback(self, msg):
         # Convert image from ROS to OpenCV
-        frame = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-    
+        image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+
         # Run YOLO detection
-        results = self.model(frame)
-        detected_people = []
-    
-        for result in results:
-            for box in result.boxes:
-                # Assuming class 0 is 'person'
-                if box.cls == 0:
-                    bbox = box.xyxy  # Bounding box
-    
-                    # Ensure the bounding box has 4 valid values
-                    if len(bbox) != 4:
-                        self.get_logger().warn(f"Invalid bounding box: {bbox}")
-                        continue
-                    
-                    # Check if the values are within the frame dimensions
-                    x1, y1, x2, y2 = bbox.tolist()
-                    if x1 < 0 or y1 < 0 or x2 > frame.shape[1] or y2 > frame.shape[0]:
-                        self.get_logger().warn(f"Bounding box out of image bounds: {bbox}")
-                        continue
-                    
-                    detected_people.append(bbox)
-    
-        # Store detected people for laser scan callback
-        self.people_positions = detected_people
-    
-        # Annotate image and publish overlay
-        annotated_image = results[0].plot()
-        overlay_msg = self.bridge.cv2_to_imgmsg(annotated_image, "bgr8")
+        results = self.model(image)
+
+        person_angle = None
+
+        # Loop through the results and draw bounding boxes
+        for result in results[0].boxes:
+            # Extract the bounding box coordinates
+            x1, y1, x2, y2 = map(int, result.xyxy[0])
+
+            # Extract the object label and confidence
+            confidence = result.conf[0]
+            class_id = int(result.cls[0])
+            label = self.model.names[class_id]  # Get the class label
+
+            if label == 'person':  # Only process person detections
+                # Draw the bounding box
+                cv2.rectangle(image, (x1, y1), (x2, y2), (64, 224, 208), 2)
+
+                # Create the label text with confidence
+                label_text = f"{label}: {confidence:.2f}"
+
+                # Put the label text on the frame
+                cv2.putText(image, label_text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (64, 224, 208), 2)
+
+                # Calculate the center of the bounding box
+                bbox_center_x = (x1 + x2) // 2
+
+                # Calculate the angle of the person relative to the camera
+                person_angle = self.calculate_angle(bbox_center_x)
+
+        # Publish the overlay image with bounding boxes
+        overlay_msg = self.bridge.cv2_to_imgmsg(image, "bgr8")
         self.overlay_publisher.publish(overlay_msg)
 
+        # If a person is detected, find the distance and publish angle/distance
+        if person_angle is not None and self.latest_laser_scan is not None:
+            person_distance = self.get_distance_from_laser(person_angle)
+            if person_distance is not None:
+                self.publish_angle_distance(person_angle, person_distance)
+
+    def calculate_angle(self, bbox_center_x):
+        
+        # Offset from the center of the image
+        offset_from_center = bbox_center_x - (self.image_width / 2)
+
+        # Calculate the angle using the camera's FOV
+        angle = (offset_from_center / self.image_width) * self.camera_fov
+
+        return angle
 
     def laser_callback(self, msg):
+        
         self.latest_laser_scan = msg
-        self.calculate_person_position()
 
-    def odom_callback(self, msg):
-        self.latest_odom = msg
+    def get_distance_from_laser(self, angle):
+        
+        if self.latest_laser_scan is None:
+            return None
 
-    def calculate_person_position(self):
-        if self.latest_laser_scan and self.latest_odom and self.people_positions:
-            for bbox in self.people_positions:
-                
+        # Get the index corresponding to the angle
+        laser_angle_min = self.latest_laser_scan.angle_min
+        laser_angle_max = self.latest_laser_scan.angle_max
+        laser_angle_increment = self.latest_laser_scan.angle_increment
 
-                if bbox.shape != (4,):
-                    self.get_logger().warn(f"Invalid bounding box: {bbox}")
-                    continue
+        # Convert angle to radians
+        angle_rad = np.deg2rad(angle)
 
-                # Approximate the range to the person based on LaserScan data
-                # Use center of the bounding box to estimate position
-                x1, y1, x2, y2 = bbox.tolist()
-                center_x = (x1 + x2) / 2
+        if laser_angle_min <= angle_rad <= laser_angle_max:
+            # Calculate the index in the ranges array
+            index = int((angle_rad - laser_angle_min) / laser_angle_increment)
+            return self.latest_laser_scan.ranges[index]
+        else:
+            return None
 
-                # Map the center_x to a corresponding angle in LaserScan data
-                scan_angle = self.map_bbox_to_laser_angle(center_x)
+    def publish_angle_distance(self, angle, distance):
+        
+        msg = Float32MultiArray()
+        msg.data = [angle, distance]
 
-                # Get the distance to the person from the LaserScan
-                distance = self.latest_laser_scan.ranges[int(scan_angle)]
-
-                # Calculate the person's position relative to the robot using odometry data
-                person_position = self.get_person_global_position(scan_angle, distance)
-
-                # Publish the position as a string
-                self.publish_position(person_position)
-
-    def map_bbox_to_laser_angle(self, center_x):
-        # Assuming the field of view of the camera and the LaserScan overlaps
-        # and that center_x can be mapped to an index in the LaserScan array
-        laser_index = int(center_x / 640 * len(self.latest_laser_scan.ranges))  # Assuming 640px image width
-        return laser_index
-
-    def get_person_global_position(self, scan_angle, distance):
-        # Get the robot's position and orientation from odometry
-        robot_position = self.latest_odom.pose.pose.position
-        robot_orientation = self.latest_odom.pose.pose.orientation
-
-        # Convert orientation (quaternion) to Euler angles (yaw for 2D rotation)
-        yaw = self.quaternion_to_yaw(robot_orientation)
-
-        # Calculate the person's position relative to the robot
-        person_x = robot_position.x + distance * math.cos(yaw + scan_angle)
-        person_y = robot_position.y + distance * math.sin(yaw + scan_angle)
-
-        # Create a Point to store the person's position
-        person_position = Point()
-        person_position.x = person_x
-        person_position.y = person_y
-        person_position.z = 0.0
-
-        return person_position
-
-    def quaternion_to_yaw(self, orientation):
-        # Convert a quaternion to a yaw angle (rotation around z-axis)
-        siny_cosp = 2 * (orientation.w * orientation.z + orientation.x * orientation.y)
-        cosy_cosp = 1 - 2 * (orientation.y * orientation.y + orientation.z * orientation.z)
-        return math.atan2(siny_cosp, cosy_cosp)
-
-    def publish_position(self, position):
-        position_str = f"Person at: x={position.x:.2f}, y={position.y:.2f}"
-        self.get_logger().info(position_str)
-        position_msg = String()
-        position_msg.data = position_str
-        self.position_publisher.publish(position_msg)
+        print("Publishing angle/distance: ", msg.data)
+        self.angle_distance_publisher.publish(msg)
 
 def main(args=None):
     rclpy.init(args=args)
