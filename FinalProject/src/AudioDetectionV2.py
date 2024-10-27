@@ -40,8 +40,6 @@
 
 # play audio after set amount of time or when turtlebot reaches location?
 
-
-import pyaudio
 import numpy as np
 import librosa
 import rclpy
@@ -54,21 +52,32 @@ import noisereduce as nr
 from concurrent.futures import ThreadPoolExecutor, Future
 import threading
 
-from ultralytics import YOLO
-import cv2
-from cv_bridge import CvBridge
+import argparse
+import torch
+import librosa
+import numpy as np
+from torch import autocast
+from contextlib import nullcontext
+
+from models.mn.model import get_model as get_mobilenet
+from models.dymn.model import get_model as get_dymn
+from models.ensemble import get_ensemble_model
+from models.preprocess import AugmentMelSTFT
+from helpers.utils import NAME_TO_WIDTH, labels
+
 
 
 class AudioComparisonNode(Node):
 
     def __init__(self) -> None:
+
         super().__init__("audio_comparison_node")
         self.threads = ThreadPoolExecutor(max_workers=10)  # 1 thread for audio comparison
         self.lock = threading.Lock()
         self.threshold = 1000
-        self.setSampleRate = 4300*2
+        self.setSampleRate = 32000
         self.compareSizeDivider = 2
-        self.hop_length = 128 #fidelity / resolution of cross similarity map
+        self.hop_length = 320 #fidelity / resolution of cross similarity map
         self.counter = 0
         self.counter2 = 0
         self.maxSoundVol = 2000
@@ -80,6 +89,31 @@ class AudioComparisonNode(Node):
         self.savedSubbedAudio = np.zeros(10)
 
 
+        self.useCudaCores = True
+
+
+
+        model_name = 'mn10_as'
+        self.device = torch.device('cuda') if self.useCudaCores and torch.cuda.is_available() else torch.device('cpu')
+        self.audio_path = "resources/help.mp3"
+        window_size = 800
+        n_mels = 128
+        strides=[2, 2, 2, 2]
+        head_type="mlp"
+
+
+        self.model = get_mobilenet(width_mult=NAME_TO_WIDTH(model_name), pretrained_name=model_name,
+                                strides=strides, head_type=head_type)
+
+
+ 
+        self.model.to(self.device)
+        self.model.eval()
+
+        # model to preprocess waveform into mel spectrograms
+        self.mel = AugmentMelSTFT(n_mels=n_mels, sr=self.setSampleRate, win_length=window_size, hopsize=self.hop_length)
+        self.mel.to(self.device)
+        self.mel.eval()
 
         # File Loading
         self.reference_data, self.ref_sr = librosa.load('/home/jet/ros2_ws/src/audio_common/audio_common/samples/explosion.mp3', sr=self.setSampleRate)
@@ -225,9 +259,9 @@ class AudioComparisonNode(Node):
 
 
     def compare_audio(self) -> float:
+        waveform, self.ref_sr = librosa.load(self.audio_path, sr=self.setSampleRate, offset=0) #use to test if function is working
         if len(self.liveAudio[self.liveAudio != 0]) > 1000: # if there is a non empty message
 
-            # self.liveAudio, self.ref_sr = librosa.load('/home/jet/ros2_ws/src/audio_common/audio_common/samples/explosion.mp3', sr=self.setSampleRate, offset=0) #use to test if function is working
             self.DIAGNOSTIC = np.fft.fft(self.liveAudio)
             self.DIAGNOSTIC = np.abs(self.DIAGNOSTIC)
             min_len = min(len(self.liveAudio), len(self.refAudio))
@@ -256,6 +290,22 @@ class AudioComparisonNode(Node):
             # self.get_logger().info(str(similarity))
             similarity = np.sum(self.xsim)
 
+        # (waveform, _) = librosa.core.load(path=self.liveAudio, sr=self.setSampleRate, mono=True)
+        waveform = torch.from_numpy(waveform[None, :]).to(self.device)
+
+        with torch.no_grad(), autocast(device_type=self.device.type) if self.useCudaCores else nullcontext():
+            spec = self.mel(waveform)
+            preds, features = self.model(spec.unsqueeze(0))
+        preds = torch.sigmoid(preds.float()).squeeze().cpu().numpy()
+
+        sorted_indexes = np.argsort(preds)[::-1]
+
+        # Print audio tagging top probabilities
+        print("************* Acoustic Event Detected: *****************")
+        for k in range(10):
+            print('{}: {:.3f}'.format(labels[sorted_indexes[k]],
+                preds[sorted_indexes[k]]))
+        print("********************************************************")
         return similarity
     
 

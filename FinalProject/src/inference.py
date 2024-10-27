@@ -24,6 +24,9 @@ def audio_tagging(args):
     hop_size = args.hop_size
     n_mels = args.n_mels
 
+
+
+
     # load pre-trained model
     if len(args.ensemble) > 0:
         model = get_ensemble_model(args.ensemble)
@@ -34,6 +37,9 @@ def audio_tagging(args):
         else:
             model = get_mobilenet(width_mult=NAME_TO_WIDTH(model_name), pretrained_name=model_name,
                                   strides=args.strides, head_type=args.head_type)
+            
+
+            
     model.to(device)
     model.eval()
 
@@ -42,7 +48,7 @@ def audio_tagging(args):
     mel.to(device)
     mel.eval()
 
-    (waveform, _) = librosa.core.load(audio_path, sr=sample_rate, mono=True)
+    (waveform, _) = librosa.core.load(path=audio_path, sr=sample_rate, mono=True)
     waveform = torch.from_numpy(waveform[None, :]).to(device)
 
     # our models are trained in half precision mode (torch.float16)
