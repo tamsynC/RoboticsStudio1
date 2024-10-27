@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format2.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="2">
+  <name>gas_marker</name>
+  <version>1.0.2</version>
+  <description>Final demo, its finally here</description>
+
+  <maintainer email="james.silsby@student.uts.edu.au">James Silsby</maintainer>
+
+  <!-- One license tag required, multiple allowed, one license per tag -->
+  <!-- Commonly used license strings: -->
+  <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
+  <license>LGPLv3</license>
+
+
+  <author email="james.silsby@student.uts.edu.au">James Silsby</author> 
+
+  <!-- The *_depend tags are used to specify dependencies -->
+  <!-- Dependencies can be catkin packages or system dependencies -->
+  <!-- Use build_depend for packages you need at compile time --> 
+  <!-- Use exec_depend for packages you need at runtime -->
+  <!-- Use test_depend for packages you need only for testing -->
+  
+  <!-- Remove the packages not needed here, and in th CMakeLists.txt (under find and ament_target_dependencies) -->
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  
+  <build_depend>rclcpp</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>visualization_msgs</build_depend>
+  <build_depend>tf2_ros</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>nav_msgs</build_depend>
+
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+
+
+  <test_depend>ament_cmake_ros</test_depend>
+  
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+
+</package>
