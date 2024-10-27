@@ -76,7 +76,7 @@ class AudioComparisonNode(Node):
         self.lock = threading.Lock()
         self.threshold = 1000
         self.setSampleRate = 32000
-        self.compareSizeDivider = 2
+        self.compareSizeDivider = 1
         self.hop_length = 320 #fidelity / resolution of cross similarity map
         self.counter = 0
         self.counter2 = 0
@@ -87,10 +87,10 @@ class AudioComparisonNode(Node):
         self.n_fft = 1024
         self.comparison_done = False  # Flag to track if comparison is done for current graph
         self.savedSubbedAudio = np.zeros(10)
-
-
+        self.cutLiveAudio = np.zeros(10)
+        self.audioProcessFrequency = 5
         self.useCudaCores = True
-
+        self.timer = False
 
 
         model_name = 'mn10_as'
@@ -121,7 +121,7 @@ class AudioComparisonNode(Node):
 
         self.referenceDuration = librosa.get_duration(y = self.reference_data, sr = self.ref_sr) #Reference audio duration
 
-        self.liveAudioBuffer = np.zeros(int(self.referenceDuration*self.ref_sr))  #Rolling recording the live audio scaling to reference duration
+        self.liveAudioBuffer = np.float16(np.zeros(int(self.referenceDuration*self.ref_sr)))  #Rolling recording the live audio scaling to reference duration
 
         self.reference_data = librosa.util.normalize(self.reference_data) # normalise 
         self.minLength = int(len(self.liveAudioBuffer)/self.compareSizeDivider) #Snippet size to compare audio signals
@@ -144,20 +144,17 @@ class AudioComparisonNode(Node):
         plt.show()
         chroma_ref = librosa.feature.chroma_stft(y=self.refAudio, sr=self.setSampleRate, hop_length=self.hop_length, n_chroma=12, n_fft=self.n_fft)
 
-        # chroma_ref = librosa.feature.chroma_cqt(y=self.refAudio, sr=self.setSampleRate, hop_length=self.hop_length, n_chroma=12)
         self.x_ref = librosa.feature.stack_memory(chroma_ref, n_steps=2, delay=3)
 
 
         # Create a subscription to the audio topic
         qos_profile = qos_profile_sensor_data
         self.sub = self.create_subscription(AudioStamped, "/audio", self.audio_callback, qos_profile)
-        self.timer = self.create_timer((self.referenceDuration/self.compareSizeDivider), self.sample_time_callback) #call timer every x seconds
+        # self.timer = self.create_timer((self.referenceDuration/self.compareSizeDivider), self.sample_time_callback) #call timer every x seconds
+
         self.get_logger().info("AudioComparison node started")
 
 
-
-    def sample_time_callback(self):
-        self.threads.submit(self.run_audio_comparison)   
 
     def audio_callback(self, msg: AudioStamped) -> None:
         # Convert the received audio message to a NumPy array
@@ -171,7 +168,7 @@ class AudioComparisonNode(Node):
 
         # Convert audio data to float and normalize
 
-        self.liveAudio = subbedAudio.astype(np.float16)
+        self.liveAudio = subbedAudio.astype(np.float16) #CHANGE TO FLOAT16 FOR GPU
         print("byte size",(self.liveAudio.nbytes))
 
         self.liveAudio = librosa.util.normalize(self.liveAudio, threshold=self.thresholdVolume, fill=False)
@@ -179,31 +176,29 @@ class AudioComparisonNode(Node):
         self.volumeCheck() #graph gets stuck if audio comparison is on same thread
 
         if len(self.liveAudio[self.liveAudio != 0]) > 1000: # if there is a non empty message
-            # Append live audio to the buffer and discard the oldest data
-            liveAudioSize = len(self.liveAudio)
             
+            # Append live audio to the buffer and discard the oldest data
+            if self.timer == False:
+                threading.Timer(5.0, self.run_audio_comparison).start()
+                self.timer = True
+
+            liveAudioSize = len(self.liveAudio)
+            self.counter +=1
             if liveAudioSize > len(self.liveAudioBuffer):
                 self.liveAudioBuffer = self.liveAudio[-len(self.liveAudioBuffer):]
             else:
                 self.liveAudioBuffer = np.roll(self.liveAudioBuffer, -liveAudioSize) #shifts whole buffer left
                 self.liveAudioBuffer[-liveAudioSize:] = self.liveAudio #put new chunk of audio on teh end of buffer
+            if self.counter > self.audioProcessFrequency:
+                
+                self.counter = 0
+            self.plotWaveforms()
 
 
-            # if len(self.liveAudioBuffer[self.liveAudioBuffer != 0]) >= self.minLength:
 
-            #         # thready.result()
-            #         # self.run_audio_comparison(self.liveAudio)
-        
-            self.liveAudio = self.liveAudioBuffer[:self.minLength]
 
-        # if self.liveAudio
+        # print("byte size2",(self.liveAudio.nbytes))
 
-        # if self.counter == 0 and len(self.liveAudio[self.liveAudio != 0]) > 100: #checks there is actual audio within the message
-
-        # self.counter+=1
-        print("byte size2",(self.liveAudio.nbytes))
-
-        self.plotWaveforms()
 
     def volumeCheck(self):
         
@@ -217,101 +212,99 @@ class AudioComparisonNode(Node):
         #Whole live audio
         self.ax[1].cla()  # Clear the second plot (live audio)
         librosa.display.waveshow(self.liveAudioBuffer, sr=self.setSampleRate, ax=self.ax[1])
-        self.ax[1].set(title='Live Audio')
+        self.ax[1].set(title='Live Audio Buffer')
         # plt.pause(0.01)  # Pause to allow the plot to update, it freaks out lower than this
 
         #Snippet of live audio
         if len(self.liveAudio[self.liveAudio != 0]) > 100: #checks there is actual audio within the message
             self.ax[2].cla()  # Clear the second plot (live snippet audio)
-            librosa.display.waveshow(self.liveAudio, sr=self.setSampleRate, ax=self.ax[2])
-            self.ax[2].set(title='Live Audio Snippet')
+            librosa.display.waveshow(self.cutLiveAudio, sr=self.setSampleRate, ax=self.ax[2])
+            self.ax[2].set(title='Previously Analysed Snippet')
 
-        try:
-            librosa.display.specshow(self.xsim, x_axis='s', y_axis='s', cmap='magma_r', hop_length=self.hop_length, ax=self.ax[4])
-        except Exception as e:
-            self.get_logger().error(f"Error in audio comparison: {str(e)}")
+        # try:
+        #     librosa.display.specshow(self.xsim, x_axis='s', y_axis='s', cmap='magma_r', hop_length=self.hop_length, ax=self.ax[4])
+        # except Exception as e:
+        #     self.get_logger().error(f"Error in audio comparison: {str(e)}")
+
+        # try:
+        #     self.ax[5].cla()  # Clear the second plot (live snippet audio)
+        #     # librosa.display.waveshow(self.DIAGNOSTIC, sr=self.setSampleRate, ax=self.ax[5])
+        #     librosa.display.specshow(self.DIAGNOSTIC, x_axis='s', y_axis='s', cmap='magma_r', hop_length=self.hop_length, ax=self.ax[5])
+        #     # plt.plot(np.linspace(0,self.setSampleRate, len(self.DIAGNOSTIC)), self.DIAGNOSTIC)
+        #     # plt.show()
+        #     # self.ax[5].set(title='DIAGNOSTIC')
+        # except Exception as e:
+        #     self.get_logger().error(f"diag: {str(e)}")
         plt.pause(0.01)  # Pause to allow the plot to update, it freaks out lower than this
 
 
 
-        try:
-            self.ax[5].cla()  # Clear the second plot (live snippet audio)
-            # librosa.display.waveshow(self.DIAGNOSTIC, sr=self.setSampleRate, ax=self.ax[5])
-            librosa.display.specshow(self.DIAGNOSTIC, x_axis='s', y_axis='s', cmap='magma_r', hop_length=self.hop_length, ax=self.ax[5])
-            # plt.plot(np.linspace(0,self.setSampleRate, len(self.DIAGNOSTIC)), self.DIAGNOSTIC)
-            # plt.show()
-            # self.ax[5].set(title='DIAGNOSTIC')
-        except Exception as e:
-            self.get_logger().error(f"diag: {str(e)}")
-
-#THREAD START
-
     def run_audio_comparison(self) -> None:
+        if self.timer == True:
+            self.timer = False
         try: 
-            similarity = self.compare_audio()
+            preds = self.compare_audio()
 
-            if similarity > self.threshold:
-                self.get_logger().info(f"Audio matches with similarity {similarity:.2f} (above threshold)")
-            else:
-                self.get_logger().info(f"Audio does not match, similarity {similarity:.2f} (below threshold)")
+            sorted_indexes = np.argsort(preds)[::-1]
+            speech = self.process_predictions(sorted_indexes, preds, "Speech")
+
+            coinDrop = self.process_predictions(sorted_indexes, preds, "Coin (dropping)")
+            thunder = self.process_predictions(sorted_indexes, preds, "Thunder")
+            gunshot = self.process_predictions(sorted_indexes, preds, "Gunshot")
+            mGun = self.process_predictions(sorted_indexes, preds, "Machine gun")
+            jHammer = self.process_predictions(sorted_indexes, preds, "Jackhammer")
+            breathing = self.process_predictions(sorted_indexes, preds, "Breathing")
+            coughing = self.process_predictions(sorted_indexes, preds, "Cough")
+            wheeze = self.process_predictions(sorted_indexes, preds, "Wheeze")
+            pant = self.process_predictions(sorted_indexes, preds, "Pant")
+
+
+
+
+            if coinDrop + thunder + jHammer > 0.9:
+                self.get_logger().info(f"High Probability of explosion Here")
+
+            if gunshot > 0.4 or mGun > 0.4:
+                self.get_logger().info(f"High Probability of gunFire Here")
+
+            if speech > 0.4 or breathing > 0.4 or coughing > 0.4 or wheeze > 0.4 or pant > 0.4:
+                self.get_logger().info(f"High Probability of human Here")
+       
+
+            print("--------Top 10 probabilities----------")
+            for k in range(10):
+                print('{}: {:.3f}'.format(labels[sorted_indexes[k]],
+                    preds[sorted_indexes[k]]))
+            print("--------------------------------------")
+
+
         except Exception as e:
             self.get_logger().error(f"Error in audio comparison: {str(e)}")
 
 
+    def process_predictions(self, sorted_indexes, preds, target_label):
+
+        for k in range(len(preds)):
+            label = labels[sorted_indexes[k]]
+            value = preds[sorted_indexes[k]]
+            if label == target_label:
+                return value
+
     def compare_audio(self) -> float:
-        waveform, self.ref_sr = librosa.load(self.audio_path, sr=self.setSampleRate, offset=0) #use to test if function is working
-        if len(self.liveAudio[self.liveAudio != 0]) > 1000: # if there is a non empty message
 
-            self.DIAGNOSTIC = np.fft.fft(self.liveAudio)
-            self.DIAGNOSTIC = np.abs(self.DIAGNOSTIC)
-            min_len = min(len(self.liveAudio), len(self.refAudio))
-            self.liveAudio = self.liveAudio[:min_len]
-
-            # self.get_logger().info(f"Reference audio length: {len(refAudio)}, Live audio length: {len(liveAudio)}")
-            # self.get_logger().info(f"Live audio sample: {liveAudio[:10]}")
-            # self.get_logger().info(f"Reference audio sample: {refAudio[:10]}")
-
-            #NEW CODE
-
-            # chroma_comp = librosa.feature.chroma_cqt(y=liveAudio, sr=self.setSampleRate, hop_length=self.hop_length, n_chroma=12)
-
-
-            chroma_comp = librosa.feature.chroma_stft(y=self.liveAudio, sr=self.setSampleRate, hop_length=self.hop_length, n_chroma=12, n_fft=self.n_fft)
-            self.DIAGNOSTIC = chroma_comp
-
-
-            # Use time-delay embedding to get a cleaner recurrence matrix
-            x_comp = librosa.feature.stack_memory(chroma_comp, n_steps=2, delay=1)
-
-            #NEW CODE
-            # similarity = np.correlate(x_comp, self.x_ref,"full")
-
-            self.xsim = librosa.segment.cross_similarity(x_comp, self.x_ref, mode='affinity', metric='cosine')        
-            # self.get_logger().info(str(similarity))
-            similarity = np.sum(self.xsim)
-
-        # (waveform, _) = librosa.core.load(path=self.liveAudio, sr=self.setSampleRate, mono=True)
-        waveform = torch.from_numpy(waveform[None, :]).to(self.device)
+        self.cutLiveAudio = self.liveAudioBuffer[:self.minLength]
+        audioProcessing = self.liveAudioBuffer[:self.minLength]
+        audioProcessing = torch.from_numpy(audioProcessing[None, :]).to(self.device)
 
         with torch.no_grad(), autocast(device_type=self.device.type) if self.useCudaCores else nullcontext():
-            spec = self.mel(waveform)
+            spec = self.mel(audioProcessing)
             preds, features = self.model(spec.unsqueeze(0))
         preds = torch.sigmoid(preds.float()).squeeze().cpu().numpy()
 
-        sorted_indexes = np.argsort(preds)[::-1]
 
-        # Print audio tagging top probabilities
-        print("************* Acoustic Event Detected: *****************")
-        for k in range(10):
-            print('{}: {:.3f}'.format(labels[sorted_indexes[k]],
-                preds[sorted_indexes[k]]))
-        print("********************************************************")
-        return similarity
+        self.liveAudioBuffer = np.float16(np.zeros(len(self.liveAudioBuffer))) #reset buffer
+        return preds
     
-
-
-#THREAD END
-
 
 def main(args=None):
     rclpy.init(args=args)
