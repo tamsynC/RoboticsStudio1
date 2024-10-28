@@ -3,6 +3,9 @@ from rclpy import Node
 from std_msgs.msg import String
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Float32MultiArray
+from geometry_msgs.msg import Point
+import math
+import tf_transformations
 
 class HQ(Node):
     def __init__(self):
@@ -49,14 +52,22 @@ class HQ(Node):
         if len(self.audioArray) > 0:
             latestDetection = self.audioArray[len(self.audioArray) - 1][0]
             latestPosition = self.audioArray[len(self.audioArray) - 1][1].pose.pose.position
-            print("Latest audio detected:", latestDetection, "At Position: X:", latestPosition.x, "Y:", latestPosition.y)
+            
+            print(latestDetection.msg, "At Position: X:", latestPosition.x, "Y:", latestPosition.y)
         else:
             print("No loud noises detected yet")
         
-        if len(self.audioArray) > 0:
-            latestDetection = self.audioArray[len(self.audioArray) - 1][0]
-            latestPosition = self.audioArray[len(self.audioArray) - 1][1].pose.pose.position
-            print("Latest person detected:", latestDetection, "At Position: X:", latestPosition.x, "Y:", latestPosition.y)
+        if len(self.peopleArray) > 0:
+            latestDetection = self.peopleArray[len(self.peopleArray) - 1][0]
+            latestPosition = self.peopleArray[len(self.peopleArray) - 1][1].pose.pose.position
+            latestOrientation = self.peopleArray[len(self.peopleArray) - 1][1].pose.pose.orientation
+            euler = tf_transformations.euler_from_quaternion(latestOrientation.x, latestOrientation.y, latestOrientation.z, latestOrientation.w)
+            yaw = euler[2]
+            personPosition = Point()
+            personPosition.x = latestPosition.x + (latestDetection.data[1] * math.cos(latestDetection.data[0] + yaw))
+            personPosition.y = latestPosition.y + (latestDetection.data[1] * math.sin(latestDetection.data[0] + yaw))
+            
+            print("Latest person detected at Position: X:", personPosition.x, "Y:", personPosition.y)
         else:
             print("No people detected yet")
         print("**********************\n")

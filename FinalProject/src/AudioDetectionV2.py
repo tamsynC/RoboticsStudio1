@@ -64,6 +64,7 @@ from models.dymn.model import get_model as get_dymn
 from models.ensemble import get_ensemble_model
 from models.preprocess import AugmentMelSTFT
 from helpers.utils import NAME_TO_WIDTH, labels
+from std_msgs.msg import String
 
 
 
@@ -91,6 +92,7 @@ class AudioComparisonNode(Node):
         self.audioProcessFrequency = 5
         self.useCudaCores = True
         self.timer = False
+        
 
 
         model_name = 'mn10_as'
@@ -105,7 +107,7 @@ class AudioComparisonNode(Node):
         self.model = get_mobilenet(width_mult=NAME_TO_WIDTH(model_name), pretrained_name=model_name,
                                 strides=strides, head_type=head_type)
 
-
+        self.LoudNoisePub = self.create_publisher(String, "/HQAudio", 10)
  
         self.model.to(self.device)
         self.model.eval()
@@ -204,6 +206,9 @@ class AudioComparisonNode(Node):
         
         if np.max(self.liveAudio) > self.maxSoundVol:
             self.get_logger().info(f"Loud Environment {np.max(self.liveAudio): .10f} Max Sound Recorded")
+            loudMsg = String()
+            loudMsg.data = "Loud Noise Detected"
+            self.LoudNoisePub.publish(loudMsg)
         if np.mean(self.liveAudio) < self.minSoundVol and np.mean(self.liveAudio) > 0: #idk why but mic reading goes - sometimes
             self.get_logger().info(f"Average sound level of {np.mean(self.liveAudio): .10f} is unusually low, please test microphone")
 
