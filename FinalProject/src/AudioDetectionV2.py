@@ -118,7 +118,7 @@ class AudioComparisonNode(Node):
         self.mel.eval()
 
         # File Loading
-        self.reference_data, self.ref_sr = librosa.load('/home/jet/ros2_ws/src/audio_common/audio_common/samples/explosion.mp3', sr=self.setSampleRate)
+        self.reference_data, self.ref_sr = librosa.load('resources/explosion.mp3', sr=self.setSampleRate)
         self.get_logger().info(f"Loaded reference audio with sample rate {self.setSampleRate}")
 
         self.referenceDuration = librosa.get_duration(y = self.reference_data, sr = self.ref_sr) #Reference audio duration
@@ -171,11 +171,11 @@ class AudioComparisonNode(Node):
         # Convert audio data to float and normalize
 
         self.liveAudio = subbedAudio.astype(np.float16) #CHANGE TO FLOAT16 FOR GPU
-        print("byte size",(self.liveAudio.nbytes))
+        # print("byte size",(self.liveAudio.nbytes))
+        self.volumeCheck() #graph gets stuck if audio comparison is on same thread
 
         self.liveAudio = librosa.util.normalize(self.liveAudio, threshold=self.thresholdVolume, fill=False)
 
-        self.volumeCheck() #graph gets stuck if audio comparison is on same thread
 
         if len(self.liveAudio[self.liveAudio != 0]) > 1000: # if there is a non empty message
             
@@ -255,7 +255,7 @@ class AudioComparisonNode(Node):
 
             coinDrop = self.process_predictions(sorted_indexes, preds, "Coin (dropping)")
             thunder = self.process_predictions(sorted_indexes, preds, "Thunder")
-            gunshot = self.process_predictions(sorted_indexes, preds, "Gunshot")
+            gunshot = self.process_predictions(sorted_indexes, preds, "Gunshot, gunfire")
             mGun = self.process_predictions(sorted_indexes, preds, "Machine gun")
             jHammer = self.process_predictions(sorted_indexes, preds, "Jackhammer")
             breathing = self.process_predictions(sorted_indexes, preds, "Breathing")
