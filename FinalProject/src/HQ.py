@@ -2,13 +2,14 @@ import rclpy
 from rclpy import Node
 from std_msgs.msg import String
 from nav_msgs.msg import Odometry
+from std_msgs.msg import Float32MultiArray
 
 class HQ(Node):
     def __init__(self):
         super.__init__("HQNode")
         self.gasSub = self.create_subscription(String, "/HQGas", self.gasCallback, 10)
         self.audioSub = self.create_subscription(String, "/HQAudio", self.audioCallback, 10)
-        self.peopleSub = self.create_subscription(String, "/HQPeople", self.peopleCallback, 10)
+        self.peopleSub = self.create_subscription(Float32MultiArray, "/person_angle_distance", self.peopleCallback, 10)
         self.odoSub = self.create_subscription(Odometry, "/odom", self.odoCallback, 10)
         
         self.gasArray = []
