@@ -172,10 +172,10 @@ class AudioComparisonNode(Node):
 
         self.liveAudio = subbedAudio.astype(np.float16) #CHANGE TO FLOAT16 FOR GPU
         # print("byte size",(self.liveAudio.nbytes))
+        self.volumeCheck() #graph gets stuck if audio comparison is on same thread
 
         self.liveAudio = librosa.util.normalize(self.liveAudio, threshold=self.thresholdVolume, fill=False)
 
-        self.volumeCheck() #graph gets stuck if audio comparison is on same thread
 
         if len(self.liveAudio[self.liveAudio != 0]) > 1000: # if there is a non empty message
             
