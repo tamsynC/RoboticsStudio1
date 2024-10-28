@@ -20,7 +20,7 @@ slam_toolbox:
     # if you'd like to immediately start continuing a map at a given pose
     # or at the dock, but they are mutually exclusive, if pose is given
     # will use pose
-    map_file_name: /home/joseph/ros2_ws/install/k10/share/k10/map/my_ma
+    map_file_name: /home/joseph/ros2_ws/install/k10/share/k10/map/map
     map_start_pose: [9.0, -9.0, 0.0]
     map_start_at_dock: false
 
