@@ -118,7 +118,7 @@ class AudioComparisonNode(Node):
         self.mel.eval()
 
         # File Loading
-        self.reference_data, self.ref_sr = librosa.load('/home/jet/ros2_ws/src/audio_common/audio_common/samples/explosion.mp3', sr=self.setSampleRate)
+        self.reference_data, self.ref_sr = librosa.load('resources/explosion.mp3', sr=self.setSampleRate)
         self.get_logger().info(f"Loaded reference audio with sample rate {self.setSampleRate}")
 
         self.referenceDuration = librosa.get_duration(y = self.reference_data, sr = self.ref_sr) #Reference audio duration
