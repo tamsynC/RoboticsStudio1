@@ -255,7 +255,7 @@ class AudioComparisonNode(Node):
 
             coinDrop = self.process_predictions(sorted_indexes, preds, "Coin (dropping)")
             thunder = self.process_predictions(sorted_indexes, preds, "Thunder")
-            gunshot = self.process_predictions(sorted_indexes, preds, "Gunshot")
+            gunshot = self.process_predictions(sorted_indexes, preds, "Gunshot, gunfire")
             mGun = self.process_predictions(sorted_indexes, preds, "Machine gun")
             jHammer = self.process_predictions(sorted_indexes, preds, "Jackhammer")
             breathing = self.process_predictions(sorted_indexes, preds, "Breathing")
