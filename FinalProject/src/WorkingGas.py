@@ -76,7 +76,7 @@ class GasMarkerPublisher(Node):
             distance = self.calculate_distance(robot_position, marker_position)
             if distance <= self.distance_threshold:
                 HQMsg = String()
-                HQMsg.data = f"TurtleBot is within {self.distance_threshold} meters of marker {name}!"
+                HQMsg.data = f"within {self.distance_threshold} meters of {name}"
                 self.detectedPub.publish(HQMsg)
 
     def calculate_distance(self, p1, p2):
