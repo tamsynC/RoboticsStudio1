@@ -3036,17 +3036,10 @@
       <pose>4.41757 -21.6949 0 0 -0 0</pose>
     </model>
     <state world_name='default'>
-<<<<<<< HEAD
-      <sim_time>2213 837000000</sim_time>
-      <real_time>333 244256387</real_time>
-      <wall_time>1725928988 810531837</wall_time>
-      <iterations>315790</iterations>
-=======
       <sim_time>3033 56000000</sim_time>
       <real_time>867 28776069</real_time>
       <wall_time>1730079329 593218762</wall_time>
       <iterations>819219</iterations>
->>>>>>> main
       <model name='Disasterbuilding'>
         <pose>0 -1.48613 0 0 -0 0</pose>
         <scale>1 1 1</scale>
@@ -3142,15 +3135,6 @@
         </link>
       </model>
       <model name='Dumpster'>
-<<<<<<< HEAD
-        <pose>1.13279 4.53035 0.001377 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>1.13279 4.53035 0.001377 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0.013529 3e-06 9.81173 3.13433 -0.384801 3.14159</acceleration>
-          <wrench>0.013529 3e-06 9.81173 0 -0 0</wrench>
-=======
         <pose>1.13279 4.53035 0.001373 0 5e-06 0</pose>
         <scale>1 1 1</scale>
         <link name='link'>
@@ -3158,7 +3142,6 @@
           <velocity>0 0 0 0 -0 0</velocity>
           <acceleration>0.00681 1e-06 -4.8536 -0.000658 -1.33923 0</acceleration>
           <wrench>0.00681 1e-06 -4.8536 0 -0 0</wrench>
->>>>>>> main
         </link>
       </model>
       <model name='ambulance'>
@@ -3181,8 +3164,6 @@
           <wrench>0 0 0 0 -0 0</wrench>
         </link>
       </model>
-<<<<<<< HEAD
-=======
       <model name='beer'>
         <pose>-8.25062 3.16015 -2e-06 1e-06 -0 -1.6e-05</pose>
         <scale>1 1 1</scale>
@@ -3203,7 +3184,6 @@
           <wrench>0 0 -3.822 0 -0 0</wrench>
         </link>
       </model>
->>>>>>> main
       <model name='bookshelf'>
         <pose>-4.42955 -0.597791 0 0 -0 0</pose>
         <scale>1 1 1</scale>
@@ -3264,8 +3244,6 @@
           <wrench>0 0 0 0 -0 0</wrench>
         </link>
       </model>
-<<<<<<< HEAD
-=======
       <model name='brick_box_3x1x3_1'>
         <pose>0.988606 2.71542 0 0 -0 0</pose>
         <scale>1 1 1</scale>
@@ -3286,7 +3264,6 @@
           <wrench>0 0 0 0 -0 0</wrench>
         </link>
       </model>
->>>>>>> main
       <model name='cabinet'>
         <pose>8.66359 2.46488 0 0 -0 0</pose>
         <scale>1 1 1</scale>
@@ -3367,43 +3344,6 @@
           <wrench>0 0 0 0 -0 0</wrench>
         </link>
       </model>
-<<<<<<< HEAD
-      <model name='person_standing'>
-        <pose>9.19716 2.74718 0.275343 1.59084 1.2e-05 0.161515</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>9.19716 2.74718 0.275343 1.59084 1.2e-05 0.161515</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0.373713 1.05743 -4.9871 -2.4621 0.645578 -2.5006</acceleration>
-          <wrench>29.8971 84.5943 -398.968 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='person_standing_0'>
-        <pose>-9.41665 -5.78107 -0 -1e-06 1e-06 0.000857</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>-9.41665 -5.78107 -0 -1e-06 1e-06 0.000857</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>1.60352 1.13005 -1.54079 1.94047 1.46202 3.09695</acceleration>
-          <wrench>128.281 90.4039 -123.263 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='person_standing_1'>
-        <pose>-9.49035 -1.40625 0.275343 1.59084 1.2e-05 5.7e-05</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>-9.49035 -1.40625 0.275343 1.59084 1.2e-05 5.7e-05</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0.538842 0.983602 -4.9871 3.13095 -1.19684 -2.49385</acceleration>
-          <wrench>43.1074 78.6881 -398.968 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='table_marble'>
-        <pose>-7.09865 1.68636 0.648 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>-7.09865 1.68636 0.648 0 -0 0</pose>
-=======
       <model name='jersey_barrier'>
         <pose>-7.99111 2.10232 0 0 0 -0.569072</pose>
         <scale>1 1 1</scale>
@@ -3499,7 +3439,6 @@
         <scale>1 1 1</scale>
         <link name='link'>
           <pose>8.30987 -3.98053 0 0 -0 1.60994</pose>
->>>>>>> main
           <velocity>0 0 0 0 -0 0</velocity>
           <acceleration>0 0 0 0 -0 0</acceleration>
           <wrench>0 0 0 0 -0 0</wrench>
@@ -3511,11 +3450,7 @@
     </state>
     <gui fullscreen='0'>
       <camera name='user_camera'>
-<<<<<<< HEAD
-        <pose>-11.5636 -51.7338 48.3756 -0 0.7709 1.59031</pose>
-=======
         <pose>2.28779 -4.90748 32.3836 0 1.4909 1.59831</pose>
->>>>>>> main
         <view_controller>orbit</view_controller>
         <projection_type>perspective</projection_type>
       </camera>
@@ -3660,55 +3595,6 @@
       </link>
       <pose>-9.49061 -1.16113 0 0 -0 0</pose>
     </model>
-<<<<<<< HEAD
-    <model name='table_marble'>
-      <static>1</static>
-      <pose>-7.09865 1.68636 0.648 0 -0 0</pose>
-      <link name='link'>
-        <collision name='collision'>
-          <geometry>
-            <mesh>
-              <uri>model:///table_marble/meshes/table_lightmap.dae</uri>
-              <scale>0.25 0.25 0.25</scale>
-            </mesh>
-          </geometry>
-          <max_contacts>10</max_contacts>
-          <surface>
-            <contact>
-              <ode/>
-            </contact>
-            <bounce/>
-            <friction>
-              <torsional>
-                <ode/>
-              </torsional>
-              <ode/>
-            </friction>
-          </surface>
-        </collision>
-        <visual name='visual'>
-          <geometry>
-            <mesh>
-              <uri>model://table_marble/meshes/table_lightmap.dae</uri>
-              <scale>0.25 0.25 0.25</scale>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>model://table_marble/materials/scripts</uri>
-              <uri>model://table_marble/materials/textures</uri>
-              <name>Table/Marble_Lightmap</name>
-            </script>
-            <lighting>0</lighting>
-          </material>
-        </visual>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-    </model>
-=======
->>>>>>> main
     <model name='bookshelf'>
       <static>1</static>
       <link name='link'>
@@ -5751,8 +5637,6 @@
       </link>
       <pose>8.64588 1.00133 0 0 -0 0</pose>
     </model>
-<<<<<<< HEAD
-=======
     <model name='person_standing_2'>
       <link name='link'>
         <inertial>
@@ -6487,6 +6371,5 @@
       </link>
       <pose>-6.44569 -2.55392 0 0 -0 0</pose>
     </model>
->>>>>>> main
   </world>
 </sdf>
