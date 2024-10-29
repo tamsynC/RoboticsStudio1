@@ -29,9 +29,9 @@ class GasMarkerPublisher(Node):
 
         # Define marker positions in the map frame
         self.marker_positions = {
-            "CH4": Point(x=1.0, y=1.0, z=0.0),
+            "CH4": Point(x=-4.0, y=1.0, z=0.0),
             "CO2": Point(x=2.0, y=2.0, z=0.0),
-            "CO": Point(x=3.0, y=3.0, z=0.0),
+            "CO": Point(x=7.0, y=3.0, z=0.0),
         }
 
         # Set the distance threshold for proximity check
@@ -78,6 +78,7 @@ class GasMarkerPublisher(Node):
                 HQMsg = String()
                 HQMsg.data = f"within {self.distance_threshold} meters of {name}"
                 self.detectedPub.publish(HQMsg)
+                self._logger.info(HQMsg.data)
 
     def calculate_distance(self, p1, p2):
         """
