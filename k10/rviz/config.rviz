@@ -7,9 +7,10 @@ Panels:
         - /RobotModel1/Description Topic1
         - /Map2/Topic1
         - /Map2/Update Topic1
-        - /PoseWithCovariance1/Status1
+        - /PoseWithCovariance1
         - /PoseWithCovariance1/Topic1
         - /PoseWithCovariance1/Covariance1/Position1
+        - /Path1/Offset1
       Splitter Ratio: 0.5
     Tree Height: 465
   - Class: rviz_common/Selection
@@ -198,7 +199,7 @@ Visualization Manager:
       Axes Length: 1
       Axes Radius: 0.10000000149011612
       Class: rviz_default_plugins/PoseWithCovariance
-      Color: 255; 25; 0
+      Color: 0; 255; 0
       Covariance:
         Orientation:
           Alpha: 0.5
@@ -215,8 +216,8 @@ Visualization Manager:
           Value: true
         Value: true
       Enabled: true
-      Head Length: 0.30000001192092896
-      Head Radius: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Head Radius: 0.15000000596046448
       Name: PoseWithCovariance
       Shaft Length: 0.5
       Shaft Radius: 0.05000000074505806
@@ -237,13 +238,13 @@ Visualization Manager:
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
-      Line Style: Lines
+      Line Style: Billboards
       Line Width: 0.029999999329447746
       Name: Path
       Offset:
         X: 0
         Y: 0
-        Z: 0
+        Z: 0.25
       Pose Color: 255; 85; 255
       Pose Style: None
       Radius: 0.029999999329447746
@@ -337,11 +338,11 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Scale: 39.33545684814453
+      Scale: 95.51260375976562
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz_default_plugins)
-      X: 4.820000648498535
-      Y: -5.445566654205322
+      X: 7.455044269561768
+      Y: -9.45150375366211
     Saved: ~
 Window Geometry:
   Camera:
@@ -363,5 +364,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1908
-  X: 0
-  Y: 0
+  X: -32
+  Y: -32
